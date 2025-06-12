@@ -1,0 +1,8 @@
+**/__pycache__/
+**/checkpoints/
+**/.venv/
+**/.ropeproject/
+**/wandb/
+poetry.lock
+
+.DS_Store

@@ -1,0 +1,24 @@
+[project]
+name = "pytorch-conformer-ctc"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "oukoutdam",email = "outdam.ouk103@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "torch (>=2.7.1,<3.0.0)",
+    "torchvision (>=0.22.1,<0.23.0)",
+    "torchaudio (>=2.7.1,<3.0.0)",
+    "wandb (>=0.20.1,<0.21.0)",
+    "jiwer (>=3.1.0,<4.0.0)"
+]
+
+[tool.poetry]
+packages = [{include = "pytorch_conformer_ctc", from = "src"}]
+package-mode =  false
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
