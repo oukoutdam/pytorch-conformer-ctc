@@ -13,5 +13,6 @@ class TrainValidLoopConfig:
     sample_rate : int = 16000
     max_epochs : int = 4
     batch_size : int = 24
-    learning_rate : float = 1e-4
+    initial_learning_rate : float = 1.0 # This is a factor, Adam's learning rate is set using scheduler
+    warmup_steps: int = 10000
     device : torch.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")

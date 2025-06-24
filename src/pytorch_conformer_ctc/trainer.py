@@ -152,7 +152,22 @@ class Trainer:
 
     def _setup_training_components(self):
         """Setup optimizer and loss criterion."""
-        self.optimizer = optim.AdamW(self.model.parameters(), lr=self.config.learning_rate)
+        d_model = 256 # get from config later
+        # --- Scheduler Setup ---
+        # 1. Define the Noam annealing function
+        def noam_lambda(step):
+            # step is 1-indexed (we add 1 below)
+            step += 1
+            arg1 = step ** -0.5
+            arg2 = step * (self.config.warmup_steps ** -1.5)
+            # The formula uses model_dim for scaling, which is often folded into the optimizer's base LR
+            return (d_model ** -0.5) * min(arg1, arg2)
+
+        # 2. Initialize optimizer
+        self.optimizer = optim.AdamW(self.model.parameters(), lr=self.config.initial_learning_rate, betas=(0.9, 0.98))
+
+        # 3. Initialize the LambdaLR scheduler
+        self.scheduler = torch.optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda=noam_lambda)
         self.criterion = CTCLoss(blank=self.tokenizer.blank, zero_infinity=True)
 
     def _setup_checkpoints(self):
@@ -169,7 +184,7 @@ class Trainer:
             project="diy-conformer-ctc",
             name=f"{self.config.experiment_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
             config={
-                "learning_rate": self.config.learning_rate,
+                "initial_learning_rate": self.config.initial_learning_rate,
                 "epochs": self.config.max_epochs,
                 "batch_size": self.config.batch_size,
                 "sample_rate": self.config.sample_rate,
@@ -192,9 +207,12 @@ class Trainer:
             loss = self.criterion(logp, labs, out_lens, llens)
             loss.backward()
             self.optimizer.step()
+            self.scheduler.step()
             self.itermeter.step()
 
-            wandb.log({"train_loss": loss.item(), "iteration": self.itermeter.get()})
+            current_lr = self.scheduler.get_last_lr()[0]
+
+            wandb.log({"train_loss": loss.item(), "current_learning_rate": current_lr, "iteration": self.itermeter.get()})
 
             if batch_idx % 100 == 0 or batch_idx == len(self.train_loader) - 1:
                 total_batches = len(self.train_loader)
