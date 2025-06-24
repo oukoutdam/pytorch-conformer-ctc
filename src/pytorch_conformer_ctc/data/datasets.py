@@ -1,4 +1,4 @@
-from typing import Callable, Union
+from typing import Callable, Union, Optional
 import torch
 from torch import nn
 from torch.utils.data import Dataset
@@ -18,7 +18,7 @@ class CEJCDataset(Dataset):
         self,
         manifest_path: Union[str, Path],
         tokenizer: TextTransform,
-        transform: Callable[[torch.Tensor], torch.Tensor]
+        transform: Optional[Callable[[torch.Tensor], torch.Tensor]] = None
     ) -> None:
         """
         Initialize the dataset.
@@ -55,15 +55,20 @@ class CEJCDataset(Dataset):
         text = sample["text"]
         audio_filepath = sample["audio_filepath"]
 
-        # Load audio waveform
+        # Load audio waveform : [num_channels, samples]
         waveform, _ = torchaudio.load(audio_filepath)
-
-        # Apply feature transform and reshape
-        # Input: [1, F, T] -> Output: [T, F] (time-first for RNN compatibility)
-        feats = self.transform(waveform).squeeze(0).transpose(0, 1)
 
         # Convert text to integer tokens
         labels = torch.tensor(self.tokenizer.text_to_int(text), dtype=torch.long)
+
+        # return raw waveform so preprocessing can be done in forward step
+        # making sure to remove num_channels
+        if not self.transform:
+            return waveform.squeeze(0), labels
+
+        # Apply feature transform and reshape
+        # Input: [num_channels, num_mels, time_frames] -> Output: [time_frames, num_mels] (time-first for StridingConvSubsampling compatibility)
+        feats = self.transform(waveform).squeeze(0).transpose(0, 1)
 
         return feats, labels
 
@@ -76,29 +81,29 @@ def collate_fn(batch: list[tuple[torch.Tensor, torch.Tensor]]) -> tuple[
     Pads sequences to the same length within each batch.
 
     Args:
-        batch: List of (features, labels) tuples
+        batch: List of (raw_signals, labels) tuples
 
     Returns:
-        feats: Padded feature tensors (batch, max_time, feature_dim)
-        flens: Feature sequence lengths (batch,)
+        signal: Padded signal tensors (batch, sample_length)
+        signallens: Original signal sequence lengths (batch,)
         labs: Padded label tensors (batch, max_label_length)
-        llens: Label sequence lengths (batch,)
+        llens: Original label sequence lengths (batch,)
     """
     # Separate features and labels
-    feats, labels = zip(*batch)
+    signals, labels = zip(*batch)
 
-    # Conver tuples to lists for pad_sequence()
-    feats = list(feats)
+    # Convert tuples to lists for pad_sequence()
+    signals = list(signals)
     labels = list(labels)
 
     # Calculate sequence lengths before padding
-    flens = torch.tensor([f.size(0) for f in feats])  # Feature lengths
+    signallens = torch.tensor([s.size(0) for s in signals])  # Feature lengths
     llens = torch.tensor([label.size(0) for label in labels])  # Label lengths
 
     # Pad sequences to same length within batch
-    feats = nn.utils.rnn.pad_sequence(feats, batch_first=True)
+    padded_signals = nn.utils.rnn.pad_sequence(signals, batch_first=True, padding_value=0.0)
     labs = nn.utils.rnn.pad_sequence(
         labels, batch_first=True, padding_value=TextTransform.blank
     )
 
-    return feats, flens, labs, llens
+    return padded_signals, signallens, labs, llens

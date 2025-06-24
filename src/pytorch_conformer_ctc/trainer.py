@@ -65,32 +65,39 @@ class Trainer:
 
     def _setup_transforms(self):
         """Setup audio transforms for training and validation."""
-        self.audio_to_logmel_transform = torch.nn.Sequential(
-            MelSpectrogram(
-                sample_rate=self.config.sample_rate,
-                n_fft=512,
-                win_length=int(0.025 * self.config.sample_rate),  # 400 for 16kHz
-                hop_length=int(0.01 * self.config.sample_rate),   # 160 for 16kHz
-                power=2,
-                n_mels=80,
-            ),
-            AmplitudeToDB(
-                stype="power",
-                top_db=80,
-            ),
-        )
+        # input: [num_channels, samples]
+        # output after MelSpectrogram: [num_channels, n_mels, time_frames]
+        # output after amplitudetodb: [num_channels, n_mels, time_frames] but scaled to db scale
+        # self.audio_to_logmel_transform = torch.nn.Sequential(
+        #     MelSpectrogram(
+        #         sample_rate=self.config.sample_rate,
+        #         n_fft=512,
+        #         win_length=int(0.025 * self.config.sample_rate),  # 400 for 16kHz
+        #         hop_length=int(0.01 * self.config.sample_rate),   # 160 for 16kHz
+        #         power=2,
+        #         n_mels=80,
+        #     ),
+        #     AmplitudeToDB(
+        #         stype="power",
+        #         top_db=80,
+        #     ),
+        # )
 
-        self.train_transform = torch.nn.Sequential(
-            self.audio_to_logmel_transform,
-            SpecAugment(
-                freq_masks=2,
-                freq_width=27,
-                time_masks=10,
-                time_width_ratio=0.05
-            )
-        )
+        # self.train_transform = torch.nn.Sequential(
+        #     self.audio_to_logmel_transform,
+        #     SpecAugment(
+        #         freq_masks=2,
+        #         freq_width=27,
+        #         time_masks=10,
+        #         time_width_ratio=0.05
+        #     )
+        # )
 
-        self.test_transform = self.audio_to_logmel_transform
+        # self.test_transform = self.audio_to_logmel_transform
+
+        # moving transforms into preprocessor
+        self.train_transform = None
+        self.test_transform = None
 
     def _setup_data(self):
         """Setup datasets and dataloaders."""
