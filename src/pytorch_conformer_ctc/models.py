@@ -3,6 +3,7 @@ from torch import nn
 from torch.nn import functional as F
 from torchaudio.models import Conformer
 from .modules.conv_subsampling import StridingConvSubsampling
+from .modules.preprocessor import AudioPreprocessor
 
 
 class PytorchConformerCTC(nn.Module):
@@ -28,6 +29,16 @@ class PytorchConformerCTC(nn.Module):
         # Calculate feed-forward network dimension
         ffn_dim = d_model * ff_expansion_factor
 
+        self.preprocessor = AudioPreprocessor(
+            sample_rate=16000,
+            n_fft=512,
+            n_mels=80,
+            freq_masks=2,
+            time_masks=10,
+            freq_width=27,
+            time_width=0.05
+        )
+
         # Subsampling layer to reduce sequence length
         self.subsampling = StridingConvSubsampling(
             input_dim=input_dim,
@@ -50,20 +61,23 @@ class PytorchConformerCTC(nn.Module):
 
     def forward(
         self,
-        feats: torch.Tensor,
-        feat_lens: torch.Tensor
+        signals: torch.Tensor,
+        signal_lens: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Forward pass through the model.
 
         Args:
-            feats: Input features (batch, time, feature_dim)
-            feat_lens: Length of each sequence in the batch
+            signals: Input audio signal (batch, time)
+            signallens: Length of each audio in the batch
 
         Returns:
             logp: Log probabilities (batch, time, vocab_size)
             new_feat_lens: Updated sequence lengths after subsampling
         """
+        # put through preprocessor
+        feats, feat_lens = self.preprocessor(signals, signal_lens)
+
         # Apply subsampling
         x, new_feat_lens = self.subsampling(feats, feat_lens)
 

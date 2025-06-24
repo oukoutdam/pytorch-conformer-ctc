@@ -7,13 +7,13 @@ from torch.utils.data import DataLoader
 from torch.nn import CTCLoss
 import wandb
 from jiwer import cer
-from torchaudio.transforms import MelSpectrogram, AmplitudeToDB
+# from torchaudio.transforms import MelSpectrogram, AmplitudeToDB
 
 from src.pytorch_conformer_ctc.tokens import TOKENS
 from src.pytorch_conformer_ctc.data.transform import TextTransform
 from src.pytorch_conformer_ctc.data.datasets import CEJCDataset, collate_fn
 from src.pytorch_conformer_ctc.models import PytorchConformerCTC
-from src.pytorch_conformer_ctc.modules.specaugment import SpecAugment
+# from src.pytorch_conformer_ctc.modules.specaugment import SpecAugment
 from src.pytorch_conformer_ctc.utils.decoding import greedy_ctc_decode
 
 
